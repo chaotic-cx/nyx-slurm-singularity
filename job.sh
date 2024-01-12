@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=nyx
-#SBATCH --mincpus 96
+#SBATCH --mincpus 128
 #SBATCH --exclusive
 #SBATCH --mem 0
 #SBATCH --partition fast
@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-mkdir -p /tmp/nyx/{run,sandbox,job}
+mkdir -p /tmp/nyx/{run,sandbox} $HOME/nyx/job
 export XDG_RUNTIME_DIR=/tmp/nyx/run
 
 if [[ "${2:-}" != "-e" ]]; then
@@ -18,7 +18,7 @@ if [[ "${2:-}" != "-e" ]]; then
   singularity build --sandbox /tmp/nyx/sandbox $HOME/nyx/guest/latest
 fi
 
-_NYX_CURRENT="/tmp/nyx/job/$SLURM_JOB_ID"
+_NYX_CURRENT="$HOME/nyx/job/$SLURM_JOB_ID"
 mkdir "$_NYX_CURRENT"
 
 _NYX_TARGET_FLAKE="github:chaotic-cx/nyx${1:-/bump/$(date +%Y%m%d)-1}"
