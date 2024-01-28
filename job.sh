@@ -16,6 +16,9 @@ export XDG_RUNTIME_DIR=/tmp/nyx/run
 if [[ "${2:-}" != "-e" ]]; then
   [[ -e /tmp/nyx/sandbox ]] && podman unshare rm -rf /tmp/nyx/sandbox
   singularity build --sandbox /tmp/nyx/sandbox $HOME/nyx/guest/latest
+else
+  mkdir -p /tmp/nyx/sandbox/{tmp/nyx-wd,var/tmp,proc,sys}
+  [ ! -e /tmp/nyx/sandbox/etc/localtime ] && cp --preserve=links /etc/localtime 7
 fi
 
 _NYX_CURRENT="$HOME/nyx/job/$SLURM_JOB_ID"
