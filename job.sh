@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-mkdir -p /tmp/nyx/{run,sandbox} $HOME/nyx/job
+mkdir -p /tmp/nyx/{run,sandbox} $HOME/nyx/{job,persistent}
 export XDG_RUNTIME_DIR=/tmp/nyx/run
 
 if [[ "${2:-}" != "-e" ]]; then
@@ -31,9 +31,10 @@ echo "Building '$_NYX_TARGET_FLAKE' job $SLURM_JOB_ID at $(hostname)"
 exec singularity exec --writable --fakeroot --no-home --containall \
   -B '/dev/full:/dev/full' \
   -B "$_NYX_CURRENT:/tmp/nyx-wd" \
+  -B "$HOME/nyx/persistent:/var/nyx" \
   --workdir /tmp /tmp/nyx/sandbox \
   nix develop "$_NYX_TARGET_FLAKE" -c env \
-  NYX_WD="/tmp/nyx-wd" \
+  NYX_WD="/tmp/nyx-wd" NYX_HOME="/var/nyx" \
   CACHIX_AUTH_TOKEN="$(cat $HOME/nyx/cachix.secret)" \
   chaotic-nyx-build
 
