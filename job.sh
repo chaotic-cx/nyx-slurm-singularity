@@ -31,10 +31,10 @@ echo "Building '$_NYX_TARGET_FLAKE' job $SLURM_JOB_ID at $(hostname)"
 exec singularity exec --writable --fakeroot --no-home --containall \
   -B '/dev/full:/dev/full' \
   -B "$_NYX_CURRENT:/tmp/nyx-wd" \
-  -B "$HOME/nyx/persistent:/var/nyx" \
+  -B "$HOME/nyx/persistent:/tmp/nyx-home" \
   --workdir /tmp /tmp/nyx/sandbox \
   nix develop "$_NYX_TARGET_FLAKE" -c env \
-  NYX_WD="/tmp/nyx-wd" NYX_HOME="/var/nyx" \
+  NYX_WD="/tmp/nyx-wd" NYX_HOME="/tmp/nyx-home" \
   CACHIX_AUTH_TOKEN="$(cat $HOME/nyx/cachix.secret)" \
   chaotic-nyx-build
 
