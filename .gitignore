@@ -3,3 +3,5 @@ slurm-*.out
 guest/
 job/
 persistent/
+cachix.secret.orig
+telegram.conf
