@@ -11,6 +11,14 @@
 # Errors in this script are critical
 set -euo pipefail
 
+# Sbatch only
+if [ -z "${SLURM_JOB_ID:-}" ]; then
+  echo 'TO RUN WITH SBATCH' >2
+  exit 1
+fi
+
+echo "Welcome to $SLURM_JOB_ID at $(hostname)"
+
 # Logs and tees to Pedro's Telegram
 function log() {
   echo "$@"
@@ -28,8 +36,10 @@ if [[ "${2:-}" != "-e" ]]; then
   singularity build --sandbox /tmp/nyx/sandbox $HOME/nyx/guest/latest
 else
   mkdir -p /tmp/nyx/sandbox/{tmp/nyx-wd,var/tmp,proc,sys}
-  [ ! -e /tmp/nyx/sandbox/etc/localtime ] && cp --preserve=links /etc/localtime 7
 fi
+
+# Clone network stuff from host
+cp /etc/{resolv.conf,hosts} /tmp/nyx/sandbox/etc/
 
 # Prepare nyx-build working directory
 _NYX_CURRENT="$HOME/nyx/job/$SLURM_JOB_ID"
@@ -41,7 +51,7 @@ if [[ ${_NYX_BRANCH:0:1} != "/" ]] ; then
   log "Invalid Nyx branch $_NYX_BRANCH"
   exit 1
 fi
-_NYX_TARGET_FLAKE="github:chaotic-cx/nyx$_NYX_BRANCH"
+_NYX_TARGET_FLAKE="github:chaotic-cx/nyx$_NYX_BRANCH?dir=maintenance"
 
 # Starts the container and run nyx-build
 log "Building '$_NYX_TARGET_FLAKE' job $SLURM_JOB_ID at $(hostname)"
@@ -50,8 +60,8 @@ if singularity exec --writable --fakeroot --no-home --containall \
   -B "$_NYX_CURRENT:/tmp/nyx-wd" \
   -B "$HOME/nyx/persistent:/tmp/nyx-home" \
   --workdir /tmp /tmp/nyx/sandbox \
-  nix develop "$_NYX_TARGET_FLAKE" -c env \
-  NYX_WD="/tmp/nyx-wd" NYX_HOME="/tmp/nyx-home" \
+  nix develop --no-write-lock-file "$_NYX_TARGET_FLAKE" --refresh -c env \
+  NYX_WD="/tmp/nyx-wd" NYX_HOME="/tmp/nyx-home" NYX_PUSH_ALL=1 \
   CACHIX_AUTH_TOKEN="$(cat $HOME/nyx/cachix.secret)" \
   chaotic-nyx-build; then
   log "Finished building '$_NYX_TARGET_FLAKE' job $SLURM_JOB_ID at $(hostname) with $?"
