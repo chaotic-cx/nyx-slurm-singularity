@@ -27,19 +27,23 @@ function log() {
 }
 
 # Preprare container working directories
-mkdir -p /tmp/nyx/{run,sandbox} $HOME/nyx/{job,persistent}
+_S=/tmp/nyx/sandbox
+mkdir -p /tmp/nyx/run $_S $HOME/nyx/{job,persistent}
 export XDG_RUNTIME_DIR=/tmp/nyx/run
 
 # Handle cleanup or re-usage of previous sandbox
 if [[ "${2:-}" != "-e" ]]; then
-  [[ -e /tmp/nyx/sandbox ]] && podman unshare rm -rf /tmp/nyx/sandbox
-  singularity build --sandbox /tmp/nyx/sandbox $HOME/nyx/guest/latest
+  [ -e $_S ] && podman unshare rm -rf $_S
+  singularity build --sandbox $_S $HOME/nyx/guest/latest
 else
-  mkdir -p /tmp/nyx/sandbox/{tmp/nyx-wd,var/tmp,proc,sys}
+  mkdir -p $_S/{tmp/nyx-wd,var/tmp,proc,sys}
 fi
 
+# If not set, clone localtime from host
+[ ! -e $_S/etc/localtime ] &&  podman unshare cp /etc/localtime $_S/etc/localtime
+
 # Clone network stuff from host
-cp /etc/{resolv.conf,hosts} /tmp/nyx/sandbox/etc/
+cp /etc/{resolv.conf,hosts} $_S/etc/
 
 # Prepare nyx-build working directory
 _NYX_CURRENT="$HOME/nyx/job/$SLURM_JOB_ID"
@@ -53,17 +57,27 @@ if [[ ${_NYX_BRANCH:0:1} != "/" ]] ; then
 fi
 _NYX_TARGET_FLAKE="github:chaotic-cx/nyx$_NYX_BRANCH?dir=maintenance"
 
+# Default headless behavior
+_S_CMD=exec
+_S_TARGET=chaotic-nyx-build
+
+# Allow interactive terminals with "srun"
+if [[ ${TERM:-dummy} != dummy ]]; then
+  _S_CMD=shell
+  _S_TARGET=bash
+fi
+
 # Starts the container and run nyx-build
 log "Building '$_NYX_TARGET_FLAKE' job $SLURM_JOB_ID at $(hostname)"
-if singularity exec --writable --fakeroot --no-home --containall \
+if singularity $_S_CMD --writable --fakeroot --no-home --containall \
   -B '/dev/full:/dev/full' \
   -B "$_NYX_CURRENT:/tmp/nyx-wd" \
   -B "$HOME/nyx/persistent:/tmp/nyx-home" \
-  --workdir /tmp /tmp/nyx/sandbox \
+  --workdir /tmp $_S \
   nix develop --no-write-lock-file "$_NYX_TARGET_FLAKE" --refresh -c env \
   NYX_WD="/tmp/nyx-wd" NYX_HOME="/tmp/nyx-home" NYX_PUSH_ALL=1 \
   CACHIX_AUTH_TOKEN="$(cat $HOME/nyx/cachix.secret)" \
-  chaotic-nyx-build; then
+  $_S_TARGET; then
   log "Finished building '$_NYX_TARGET_FLAKE' job $SLURM_JOB_ID at $(hostname) with $?"
 else
   _ERROR=$?
